@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DuplicateKeyException;
 
 @Configuration
 @EnableBatchProcessing
@@ -72,6 +73,9 @@ public class BatchConfiguration {
         .reader(reader())
         .processor(processor())
         .writer(writer)
+        .faultTolerant()
+        .skipLimit(10)
+        .skip(DuplicateKeyException.class)
         .build();
   }
 
