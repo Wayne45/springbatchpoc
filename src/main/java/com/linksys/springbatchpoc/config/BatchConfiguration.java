@@ -9,6 +9,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
@@ -33,13 +34,24 @@ public class BatchConfiguration {
   @Autowired
   public StepBuilderFactory stepBuilderFactory;
 
-  @Value("${file.input}")
-  private String fileInput;
+  private String getFileName(String filename, Long fileNumber) {
+    return String.format("%s_%d.csv", filename, fileNumber);
+  }
 
+  /**
+   * @Value("#{jobParameters}") Map jobParameters: can be used for load all job parameters.
+   * includedFields: can load specified csv header fields.
+   */
   @Bean
-  public FlatFileItemReader reader() {
+  @StepScope
+  public FlatFileItemReader<Coffee> reader(@Value("#{jobParameters['fileNumber']}") Long fileNumber,
+                                           @Value("${file.input}") String fileInput) {
+
+    String filename = getFileName(fileInput, fileNumber);
+    System.out.println("filename: " + filename);
+
     return new FlatFileItemReaderBuilder().name("coffeeItemReader")
-                                          .resource(new ClassPathResource(fileInput))
+                                          .resource(new ClassPathResource(filename))
                                           .delimited()
                                           .names(new String[] { "external_id", "brand", "origin", "characteristics" })
                                           .fieldSetMapper(new BeanWrapperFieldSetMapper() {{
@@ -67,10 +79,10 @@ public class BatchConfiguration {
   }
 
   @Bean
-  public Step step1(JdbcBatchItemWriter writer) {
+  public Step step1(JdbcBatchItemWriter writer, FlatFileItemReader reader) {
     return stepBuilderFactory.get("step1")
         .<Coffee, Coffee> chunk(10)
-        .reader(reader())
+        .reader(reader)
         .processor(processor())
         .writer(writer)
         .faultTolerant()
