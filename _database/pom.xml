@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.linksys</groupId>
+  <artifactId>batch-database</artifactId>
+  <packaging>pom</packaging>
+  <version>1.0.0</version>
+  <name>batch-database</name>
+  <description>Database evolutions</description>
+
+  <properties>
+    <flyway.url>jdbc:postgresql://localhost:5432/batch</flyway.url>
+    <flyway.user>batch</flyway.user>
+    <flyway.password>batch</flyway.password>
+    <moab.environment>default</moab.environment>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>default</id>
+      <properties/>
+    </profile>
+    <profile>
+      <id>local</id>
+      <properties>
+        <moab.environment>local</moab.environment>
+      </properties>
+    </profile>
+  </profiles>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-maven-plugin</artifactId>
+        <version>8.5.5</version>
+        <configuration>
+          <url>${flyway.url}</url>
+          <user>${flyway.user}</user>
+          <password>${flyway.password}</password>
+          <locations>
+            <location>filesystem:migrations,filesystem:other/${moab.environment}</location>
+          </locations>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flyway</id>
+            <goals>
+              <goal>migrate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.3.3</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
+  </build>
+</project>
