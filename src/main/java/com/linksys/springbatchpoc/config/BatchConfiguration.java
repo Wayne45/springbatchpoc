@@ -40,7 +40,7 @@ public class BatchConfiguration {
     return new FlatFileItemReaderBuilder().name("coffeeItemReader")
                                           .resource(new ClassPathResource(fileInput))
                                           .delimited()
-                                          .names(new String[] { "brand", "origin", "characteristics" })
+                                          .names(new String[] { "external_id", "brand", "origin", "characteristics" })
                                           .fieldSetMapper(new BeanWrapperFieldSetMapper() {{
                                             setTargetType(Coffee.class);
                                           }})
@@ -50,7 +50,7 @@ public class BatchConfiguration {
   @Bean
   public JdbcBatchItemWriter<Coffee> writer(DataSource dataSource) {
     return new JdbcBatchItemWriterBuilder<Coffee>().itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-                                                   .sql("INSERT INTO coffee (brand, origin, characteristics) VALUES (:brand, :origin, :characteristics)")
+                                                   .sql("INSERT INTO coffee (external_id, brand, origin, characteristics) VALUES (:externalId, :brand, :origin, :characteristics)")
                                                    .dataSource(dataSource)
                                                    .build();
   }

@@ -1,6 +1,7 @@
 package com.linksys.springbatchpoc.processor;
 
 import com.linksys.springbatchpoc.model.Coffee;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;
@@ -32,8 +33,9 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
     if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
       logger.info("!!! JOB FINISHED! Time to verify the results");
 
-      String query = "SELECT brand, origin, characteristics FROM coffee";
-      jdbcTemplate.query(query, (rs, row) -> new Coffee(rs.getString(1), rs.getString(2), rs.getString(3)))
+      String query = "SELECT external_id, brand, origin, characteristics FROM coffee";
+      jdbcTemplate.query(query, (rs, row) -> new Coffee(
+          UUID.fromString(rs.getString(1)), rs.getString(2), rs.getString(3), rs.getString(4)))
                   .forEach(coffee -> logger.info("Found < {} > in the database.", coffee));
     }
   }
