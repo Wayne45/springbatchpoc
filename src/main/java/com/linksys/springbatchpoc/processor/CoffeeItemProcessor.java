@@ -1,25 +1,19 @@
 package com.linksys.springbatchpoc.processor;
 
-import com.linksys.springbatchpoc.model.Coffee;
-import java.util.UUID;
+import com.linksys.springbatchpoc.persistence.entity.CoffeeEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.item.ItemProcessor;
 
-public class CoffeeItemProcessor implements ItemProcessor<Coffee, Coffee> {
+public class CoffeeItemProcessor implements ItemProcessor<CoffeeEntity, CoffeeEntity> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(CoffeeItemProcessor.class);
 
   @Override
-  public Coffee process(final Coffee coffee) throws Exception {
-    UUID externalId = coffee.getExternalId();
-    String brand = coffee.getBrand().toUpperCase();
-    String origin = coffee.getOrigin().toUpperCase();
-    String characteristics = coffee.getCharacteristics().toUpperCase();
+  public CoffeeEntity process(final CoffeeEntity coffee) throws Exception {
 
-    Coffee transformedCoffee = new Coffee(externalId, brand, origin, characteristics);
-    LOGGER.info("Converting ( {} ) into ( {} )", coffee, transformedCoffee);
+    LOGGER.info("==== Processing ( {} ) ====", coffee);
 
-    return transformedCoffee;
+    return coffee;
   }
 }
