@@ -3,7 +3,6 @@ package com.linksys.springbatchpoc.config;
 import com.linksys.springbatchpoc.persistence.entity.CoffeeEntity;
 import com.linksys.springbatchpoc.processor.CoffeeItemProcessor;
 import com.linksys.springbatchpoc.processor.JobCompletionNotificationListener;
-import javax.sql.DataSource;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -29,6 +28,8 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+
+import javax.sql.DataSource;
 
 @Configuration
 @EnableBatchProcessing
@@ -57,8 +58,8 @@ public class BatchConfiguration {
   @StepScope
   @SuppressWarnings({"rawtypes", "unchecked"})
   public FlatFileItemReader<CoffeeEntity> fileReader(
-      @Value("#{jobParameters['fileNumber']}") Long fileNumber,
-      @Value("${file.input}") String fileInput) {
+    @Value("#{jobParameters['fileNumber']}") Long fileNumber,
+    @Value("${file.input}") String fileInput) {
 
     String filename = getFileName(fileInput, fileNumber);
     System.out.println("filename: " + filename);
@@ -77,45 +78,42 @@ public class BatchConfiguration {
   @Bean("dbWriter")
   public JdbcBatchItemWriter<CoffeeEntity> writer(DataSource dataSource) {
     return new JdbcBatchItemWriterBuilder<CoffeeEntity>()
-        .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-        .sql(
-            "INSERT INTO coffee (external_id, brand, origin, characteristics, status) VALUES (:externalId, :brand, :origin, :characteristics, 'NEW')")
-        .dataSource(dataSource)
-        .build();
+      .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+      .sql(
+        "INSERT INTO coffee (external_id, brand, origin, characteristics, status) VALUES (:externalId, :brand, :origin, :characteristics, 'NEW')")
+      .dataSource(dataSource)
+      .build();
   }
 
   @Bean("dbStatusWriter")
   @StepScope
-  public JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter(
-      @Value("#{jobParameters['externalId']}") String externalId,
-      DataSource dataSource) {
-    System.out.println("dbStatusWriter externalId: " + externalId);
+  public JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter(DataSource dataSource) {
     return new JdbcBatchItemWriterBuilder<CoffeeEntity>()
-        .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-        .itemPreparedStatementSetter((item, ps) -> {
-          ps.setString(1, "SENT");
-        })
-        .sql(String.format("UPDATE coffee SET status = ? WHERE external_id = '%s'",
-                           externalId))
-        .dataSource(dataSource)
-        .build();
+      .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+      .itemPreparedStatementSetter((item, ps) -> {
+        ps.setString(1, "SENT");
+        ps.setObject(2, item.getExternalId());
+      })
+      .sql("UPDATE coffee SET status = ? WHERE external_id = ?")
+      .dataSource(dataSource)
+      .build();
   }
 
   @Bean("dbReader")
   @StepScope
   public JdbcCursorItemReader<CoffeeEntity> dbReader(
-      @Value("#{jobParameters['externalId']}") String externalId, DataSource dataSource) {
+    @Value("#{jobParameters['externalId']}") String externalId, DataSource dataSource) {
     System.out.println("dbReader externalId: " + externalId);
     //String query =
     //    "SELECT * FROM coffee WHERE external_id = '" + externalId + "' AND status = 'NEW'";
-    String query =
-        "SELECT * FROM coffee WHERE status = 'NEW'";
+    String query = "SELECT * FROM coffee WHERE status = 'NEW' AND external_id='%s'".formatted(externalId);
     return new JdbcCursorItemReaderBuilder<CoffeeEntity>()
-        .name("coffee_reader")
-        .sql(query)
-        .dataSource(dataSource)
-        .rowMapper(new BeanPropertyRowMapper<>(CoffeeEntity.class))
-        .build();
+      .name("coffee_reader")
+      .sql(query)
+      .dataSource(dataSource)
+      .maxItemCount(1)
+      .rowMapper(new BeanPropertyRowMapper<>(CoffeeEntity.class))
+      .build();
   }
 
   @Bean("importDataJob")
@@ -133,13 +131,13 @@ public class BatchConfiguration {
   public Step importStep(@Qualifier("dbWriter") JdbcBatchItemWriter writer,
                          @Qualifier("fileReader") FlatFileItemReader reader) {
     return stepBuilderFactory.get("importStep")
-        .<CoffeeEntity, CoffeeEntity>chunk(10)
-        .reader(reader)
-        .writer(writer)
-        .faultTolerant()
-        .skipLimit(10)
-        .skip(DuplicateKeyException.class)
-        .build();
+                             .<CoffeeEntity, CoffeeEntity>chunk(10)
+                             .reader(reader)
+                             .writer(writer)
+                             .faultTolerant()
+                             .skipLimit(10)
+                             .skip(DuplicateKeyException.class)
+                             .build();
   }
 
   @Bean("processDataJob")
@@ -157,13 +155,13 @@ public class BatchConfiguration {
   public Step processStep(@Qualifier("dbReader") JdbcCursorItemReader<CoffeeEntity> dbReader,
                           @Qualifier("dbStatusWriter") JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter) {
     return stepBuilderFactory.get("processStepJob")
-        .<CoffeeEntity, CoffeeEntity>chunk(10)
-        .reader(dbReader)
-        .processor(processor())
-        .writer(dbStatusWriter)
-        .taskExecutor(taskExecutor())
-        .throttleLimit(20)
-        .build();
+                             .<CoffeeEntity, CoffeeEntity>chunk(10)
+                             .reader(dbReader)
+                             .processor(processor())
+                             .writer(dbStatusWriter)
+                             .taskExecutor(taskExecutor())
+                             .throttleLimit(20)
+                             .build();
   }
 
   @Bean
