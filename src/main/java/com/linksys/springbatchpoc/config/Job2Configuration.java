@@ -48,12 +48,13 @@ public class Job2Configuration {
     System.out.println("dbReader externalId: " + externalId);
     String query = "SELECT * FROM coffee WHERE status = 'NEW' AND external_id='%s'".formatted(externalId);
     return new JdbcCursorItemReaderBuilder<CoffeeEntity>()
-      .name("coffee_reader")
-      .sql(query)
-      .dataSource(dataSource)
-      .maxItemCount(1)
-      .rowMapper(new BeanPropertyRowMapper<>(CoffeeEntity.class))
-      .build();
+        .name("coffee_reader")
+        .sql(query)
+        //.preparedStatementSetter()
+        .dataSource(dataSource)
+        .maxItemCount(1)
+        .rowMapper(new BeanPropertyRowMapper<>(CoffeeEntity.class))
+        .build();
   }
 
   @Bean("dbStatusWriter")
