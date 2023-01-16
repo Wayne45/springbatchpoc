@@ -1,7 +1,7 @@
 package com.linksys.springbatchpoc;
 
-import com.linksys.springbatchpoc.persistence.entity.CoffeeEntity;
 import com.linksys.springbatchpoc.persistence.repository.CoffeeRepository;
+import java.util.UUID;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
@@ -54,6 +54,10 @@ public class SpringBatchPocApplication implements CommandLineRunner {
     for (long i = fileNumber; i <= fileCount; i++) {
       try {
         JobParameters jobParameters = new JobParametersBuilder().addLong("fileNumber", i)
+//                                                                .addString("randomId",
+//                                                                           UUID.randomUUID()
+//                                                                               .toString()
+//                                                                               .toUpperCase())
                                                                 .toJobParameters();
         JobExecution execution = jobLauncher.run(importDataJob, jobParameters);
         System.out.println(
@@ -74,11 +78,12 @@ public class SpringBatchPocApplication implements CommandLineRunner {
     Pageable pageable;
     while (page < totalPage) {
       pageable = PageRequest.of(page, pageSize);
-      Page<CoffeeEntity> coffeePage = coffeeRepository.findAll(pageable);
-      for (CoffeeEntity it : coffeePage) {
+      Page<UUID> coffeeExtIds = coffeeRepository.findAllExternalIdsWithPagination(pageable);
+      for (UUID uuid : coffeeExtIds) {
         try {
           JobParameters jobParameters = new JobParametersBuilder()
-              .addString("externalId", it.getExternalId().toString())
+              .addString("externalId", uuid.toString())
+              //.addString("randomId", UUID.randomUUID().toString().toUpperCase())
               .toJobParameters();
           JobExecution execution = jobLauncher.run(processDataJob, jobParameters);
           System.out.println(
@@ -86,7 +91,7 @@ public class SpringBatchPocApplication implements CommandLineRunner {
         } catch (JobInstanceAlreadyCompleteException | JobExecutionAlreadyRunningException | JobRestartException | JobParametersInvalidException e) {
           System.out.println(
               String.format("[ProcessDataJob] JobInstance Already Completed !! externalId=[%s]",
-                            it.getExternalId()));
+                            uuid));
         }
       }
       page++;

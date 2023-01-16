@@ -32,17 +32,28 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
   public void afterJob(JobExecution jobExecution){
     if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
       logger.info("!!! JOB FINISHED! Time to verify the results");
-
-      String query = "SELECT external_id, brand, origin, characteristics, status FROM coffee";
-      jdbcTemplate.query(query, (rs, row) -> CoffeeEntity.newBuilder()
-                                                         .withExternalId(
-                                                             UUID.fromString(rs.getString(1)))
-                                                         .withBrand(rs.getString(2))
-                                                         .withOrigin(rs.getString(3))
-                                                         .withCharacteristics(rs.getString(4))
-                                                         .withStatus(rs.getString(5))
-                                                         .build())
-                  .forEach(coffee -> logger.info("Found < {} > in the database.", coffee));
+      String externalId = jobExecution.getJobParameters().getString("externalId");
+      if (externalId != null) {
+        String query =
+            "SELECT id, external_id, brand, origin, characteristics, status FROM coffee WHERE external_id ='"
+                + externalId + "'";
+        jdbcTemplate.query(query, (rs, row) -> CoffeeEntity.newBuilder()
+                                                           .withId(rs.getLong(1))
+                                                           .withExternalId(
+                                                               UUID.fromString(rs.getString(2)))
+                                                           .withBrand(rs.getString(3))
+                                                           .withOrigin(rs.getString(4))
+                                                           .withCharacteristics(rs.getString(5))
+                                                           .withStatus(rs.getString(6))
+                                                           .build())
+                    .forEach(coffee -> {
+                      if (coffee.getStatus() == null) {
+                        logger.error("Found < {} > in the database but status is null", coffee);
+                      } else {
+                        logger.info("Found < {} > in the database.", coffee);
+                      }
+                    });
+      }
     }
   }
 

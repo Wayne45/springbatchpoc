@@ -25,6 +25,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 
@@ -40,6 +42,11 @@ public class BatchConfiguration {
 
   private String getFileName(String filename, Long fileNumber) {
     return String.format("%s_%d.csv", filename, fileNumber);
+  }
+
+  @Bean
+  public TaskExecutor taskExecutor() {
+    return new SimpleAsyncTaskExecutor("spring_batch");
   }
 
   /**
@@ -72,7 +79,7 @@ public class BatchConfiguration {
     return new JdbcBatchItemWriterBuilder<CoffeeEntity>()
         .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
         .sql(
-            "INSERT INTO coffee (external_id, brand, origin, characteristics) VALUES (:externalId, :brand, :origin, :characteristics)")
+            "INSERT INTO coffee (external_id, brand, origin, characteristics, status) VALUES (:externalId, :brand, :origin, :characteristics, 'NEW')")
         .dataSource(dataSource)
         .build();
   }
@@ -99,10 +106,13 @@ public class BatchConfiguration {
   public JdbcCursorItemReader<CoffeeEntity> dbReader(
       @Value("#{jobParameters['externalId']}") String externalId, DataSource dataSource) {
     System.out.println("dbReader externalId: " + externalId);
+    //String query =
+    //    "SELECT * FROM coffee WHERE external_id = '" + externalId + "' AND status = 'NEW'";
+    String query =
+        "SELECT * FROM coffee WHERE status = 'NEW'";
     return new JdbcCursorItemReaderBuilder<CoffeeEntity>()
         .name("coffee_reader")
-        .sql(String.format("SELECT * FROM coffee WHERE external_id = '%s' AND status is null",
-                           externalId))
+        .sql(query)
         .dataSource(dataSource)
         .rowMapper(new BeanPropertyRowMapper<>(CoffeeEntity.class))
         .build();
@@ -151,6 +161,8 @@ public class BatchConfiguration {
         .reader(dbReader)
         .processor(processor())
         .writer(dbStatusWriter)
+        .taskExecutor(taskExecutor())
+        .throttleLimit(20)
         .build();
   }
 

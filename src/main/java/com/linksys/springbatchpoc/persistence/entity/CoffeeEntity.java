@@ -21,7 +21,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Entity
 @Table(name = "coffee")
-public class CoffeeEntity {
+public class CoffeeEntity implements CoffeeExternalId {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY, generator = "coffee_id_seq")
