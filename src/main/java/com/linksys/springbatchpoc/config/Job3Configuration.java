@@ -10,20 +10,18 @@ import javax.sql.DataSource;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
-import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 
 @Configuration
@@ -39,16 +37,6 @@ public class Job3Configuration {
     this.stepBuilderFactory = stepBuilderFactory;
   }
 
-  @Bean("taskExecutor3")
-  public TaskExecutor taskExecutor3() {
-    return new SimpleAsyncTaskExecutor("spring_batch_job3");
-  }
-
-  @Bean
-  public RangePartitioner rangePartitioner() {
-    return new RangePartitioner();
-  }
-
   @Bean("partitionerJob")
   public Job partitionerJob(@Qualifier("masterStep") Step masterStep) {
     return jobBuilderFactory.get("partitionerJob")
@@ -58,20 +46,27 @@ public class Job3Configuration {
 
   @Bean("masterStep")
   @SuppressWarnings({"rawtypes"})
-  public Step masterStep(@Qualifier("slaveStep") Step slaveStep,
-                         @Qualifier("taskExecutor3") TaskExecutor taskExecutor) {
+  @JobScope
+  public Step masterStep(@Value("#{jobParameters['minId']}") Long minId,
+                         @Value("#{jobParameters['maxId']}") Long maxId,
+                         @Value("#{jobParameters['threadSize']}") Integer threadSize,
+                         @Qualifier("slaveStep") Step slaveStep,
+                         TaskExecutor taskExecutor) {
+
+    RangePartitioner rangePartitioner = new RangePartitioner(minId, maxId);
+
     return stepBuilderFactory.get("masterStep")
-                             .partitioner("slaveStep", rangePartitioner())
+                             .partitioner("slaveStep", rangePartitioner)
                              .step(slaveStep)
                              .taskExecutor(taskExecutor)
-                             .gridSize(10)
+                             .gridSize(threadSize)
                              .build();
   }
 
   @Bean("slaveStep")
   public Step slaveStep(CoffeeItemProcessor processor,
                         @Qualifier("pagingItemReader") JdbcPagingItemReader<CoffeeEntity> pagingItemReader,
-                        @Qualifier("dbStatusWriter3") JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter) {
+                        @Qualifier("dbStatusWriter") JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter) {
     return stepBuilderFactory.get("slaveStep")
         .<CoffeeEntity, CoffeeEntity>chunk(1)
         .reader(pagingItemReader)
@@ -88,7 +83,7 @@ public class Job3Configuration {
     PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
     queryProvider.setSelectClause("SELECT *");
     queryProvider.setFromClause("FROM coffee");
-    queryProvider.setWhereClause("WHERE id >= :fromId AND id <= :toId");
+    queryProvider.setWhereClause("WHERE id >= :fromId AND id <= :toId AND status = 'NEW'");
     queryProvider.setSortKeys(sortKeys);
 
     return queryProvider;
@@ -102,8 +97,8 @@ public class Job3Configuration {
   @Bean("pagingItemReader")
   @StepScope
   public JdbcPagingItemReader<CoffeeEntity> pagingItemReader(
-      @Value("#{stepExecutionContext[fromId]}") Integer fromId,
-      @Value("#{stepExecutionContext[toId]}") Integer toId,
+      @Value("#{stepExecutionContext[fromId]}") Long fromId,
+      @Value("#{stepExecutionContext[toId]}") Long toId,
       DataSource dataSource) {
     Map<String, Object> parameterValues = new HashMap<>();
     parameterValues.put("fromId", fromId);
@@ -115,21 +110,7 @@ public class Job3Configuration {
         .queryProvider(queryProvider())
         .parameterValues(parameterValues)
         .rowMapper(rowMapper())
-        .pageSize(10)
-        .build();
-  }
-
-  @Bean("dbStatusWriter3")
-  @StepScope
-  public JdbcBatchItemWriter<CoffeeEntity> dbStatusWriter(DataSource dataSource) {
-    return new JdbcBatchItemWriterBuilder<CoffeeEntity>()
-        .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
-        .itemPreparedStatementSetter((item, ps) -> {
-          ps.setString(1, "SENT");
-          ps.setObject(2, item.getExternalId());
-        })
-        .sql("UPDATE coffee SET status = ? WHERE external_id = ?")
-        .dataSource(dataSource)
+        .pageSize(10) // set to thread size ?
         .build();
   }
 

@@ -21,3 +21,6 @@ spring:
 
 file:
   input: coffee-list
+
+thread:
+  size: 10

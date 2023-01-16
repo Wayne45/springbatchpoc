@@ -11,4 +11,10 @@ public interface CoffeeRepository extends BaseRepository<CoffeeEntity> {
   @Query("select it.externalId from CoffeeEntity it")
   Page<UUID> findAllExternalIdsWithPagination(Pageable pageable);
 
+  @Query("select min(it.id) from CoffeeEntity it")
+  Long getMinId();
+
+  @Query("select max(it.id) from CoffeeEntity it")
+  Long getMaxId();
+
 }

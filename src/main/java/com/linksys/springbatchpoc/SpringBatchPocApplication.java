@@ -14,6 +14,7 @@ import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteExcep
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -36,6 +37,9 @@ public class SpringBatchPocApplication implements CommandLineRunner {
   @Autowired
   @Qualifier("partitionerJob")
   private Job partitionerJob;
+
+  @Value("${thread.size}")
+  private Long threadSize;
 
   @Autowired
   private CoffeeRepository coffeeRepository;
@@ -102,8 +106,12 @@ public class SpringBatchPocApplication implements CommandLineRunner {
 
     // Job3
     try {
+      long minId = coffeeRepository.getMinId();
+      long maxId = coffeeRepository.getMaxId();
       JobParameters jobParameters = new JobParametersBuilder()
-          //.addString("externalId", id.toString())
+          .addLong("minId", minId)
+          .addLong("maxId", maxId)
+          .addLong("threadSize", threadSize)
           .addString("randomId", UUID.randomUUID().toString().toUpperCase())
           .toJobParameters();
       JobExecution execution = jobLauncher.run(partitionerJob, jobParameters);
