@@ -12,7 +12,7 @@ public class CoffeeItemProcessor implements ItemProcessor<CoffeeEntity, CoffeeEn
   @Override
   public CoffeeEntity process(final CoffeeEntity coffee) throws Exception {
 
-    LOGGER.info("==== Processing ( {} ) ====", coffee);
+    //LOGGER.info("==== Processing ( {} ) ====", coffee);
 
     return coffee;
   }
