@@ -2,6 +2,7 @@ package com.linksys.springbatchpoc;
 
 import com.linksys.springbatchpoc.bulkinserter.BulkInsertCoffeeService;
 import com.linksys.springbatchpoc.persistence.repository.CoffeeRepository;
+import java.util.UUID;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
@@ -104,7 +105,7 @@ public class SpringBatchPocApplication implements CommandLineRunner {
 //    }
 
     // Generate data
-    bulkInsertCoffeeService.generate(100000);
+    bulkInsertCoffeeService.generate(1000000);
 
     // Job3
     try {
@@ -114,12 +115,13 @@ public class SpringBatchPocApplication implements CommandLineRunner {
           .addLong("minId", minId)
           .addLong("maxId", maxId)
           .addLong("threadSize", threadSize)
+          .addString("randomId", UUID.randomUUID().toString().toUpperCase())
           .toJobParameters();
       JobExecution execution = jobLauncher.run(partitionerJob, jobParameters);
       System.out.println(
           String.format("JobInstance STATUS :: %s", execution.getStatus()));
     } catch (Throwable e) {
-      System.out.println("[PartitionerJob] JobInstance Already Completed !!");
+      System.out.println("[PartitionerJob] JobInstance Error !! " + e.getMessage());
     }
   }
 }
